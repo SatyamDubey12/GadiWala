@@ -5,164 +5,491 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GadiWala | Premium Vehicle Rentals</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-    
-    <style>
-        .page { transition: all 0.3s ease; }
-        .modal { background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); }
-        .active-role { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
-        .car-card:hover { transform: scale(1.02); }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .hidden { display: none !important; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-50 text-gray-900 font-sans">
+
+    <div id="loader" class="hidden fixed inset-0 z-[200] bg-white/80 flex items-center justify-center">
+        <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
 
     <nav class="bg-white shadow-md sticky top-0 z-50">
         <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="text-3xl font-black cursor-pointer tracking-tighter" onclick="showPage('home')">
                 GADI<span class="text-blue-600">WALA</span>
             </div>
-            
-            <div class="relative w-full max-w-md">
-                <input type="text" id="global-search" oninput="handleSearch()" placeholder="Search vehicles (e.g. SUV, Scooter)..." 
-                       class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
-                <span class="absolute left-3 top-2.5 opacity-30">🔍</span>
+            <div class="relative w-full max-w-md flex items-center gap-2">
+                <div class="relative flex-1">
+                    <input type="text" id="global-search" oninput="handleSearchSuggestions()" placeholder="Search vehicles (e.g. SUV, Thar)..." 
+                           class="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                    <span class="absolute left-3 top-2.5 opacity-30">🔍</span>
+                </div>
+                <button onclick="fetchUserLocation()" class="p-2 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition group" title="Detect My Location">
+                    <span class="text-xs group-hover:scale-110 block">📍</span>
+                </button>
+                <div id="search-suggestions" class="hidden absolute top-full left-0 w-full bg-white border rounded-xl mt-1 shadow-xl z-[60] max-h-48 overflow-y-auto"></div>
             </div>
-
             <div id="nav-actions" class="flex items-center gap-4"></div>
         </div>
         <div id="location-bar" class="hidden bg-blue-50 border-t border-blue-100 py-2">
             <div class="container mx-auto px-6 flex justify-between items-center">
                 <p class="text-[10px] font-bold text-blue-700 flex items-center gap-2">
-                    <span id="loc-dot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                    <span id="loc-text">Detecting your location...</span>
+                    <span id="loc-dot" class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                    <span id="loc-text">Finding you...</span>
                 </p>
-                <button onclick="fetchUserLocation()" class="text-[10px] bg-blue-200 px-2 py-1 rounded font-black hover:bg-blue-300 uppercase">Refresh</button>
+                <div id="manual-loc-input" class="hidden flex items-center gap-2">
+                    <input type="text" id="manual-city" placeholder="Enter your city (e.g. Delhi)" class="text-[10px] px-2 py-1 rounded border border-blue-200 outline-none w-32">
+                    <button onclick="setManualLocation()" class="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-black uppercase">Go</button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="filter-city-btn" class="hidden text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-black uppercase">Filter My City</button>
+                    <button onclick="fetchUserLocation()" class="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-black hover:bg-blue-200 uppercase">Refresh</button>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div id="home" class="page container mx-auto px-6 py-10">
-        <h2 id="home-title" class="text-4xl font-black mb-10 text-center uppercase tracking-tight">Explore Our Fleet</h2>
-        <div id="car-list" class="grid grid-cols-1 md:grid-cols-2 gap-10"></div>
-    </div>
+    <main id="home" class="page container mx-auto px-6 py-10">
+        <h2 class="text-4xl font-black mb-10 text-center uppercase tracking-tight">Explore Our Fleet</h2>
+        <div id="car-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"></div>
+    </main>
 
-    <div id="auth" class="page hidden container mx-auto px-4 py-12">
+    <section id="auth" class="page hidden container mx-auto px-4 py-12">
         <div class="max-w-md mx-auto bg-white p-10 rounded-[40px] shadow-2xl border">
             <h2 class="text-3xl font-black mb-6 text-center">Account Access</h2>
             <div class="flex gap-2 mb-8">
-                <button id="r-user" class="flex-1 py-3 border-2 rounded-2xl font-bold active-role" onclick="setRole('user')">Customer</button>
-                <button id="r-admin" class="flex-1 py-3 border-2 rounded-2xl font-bold" onclick="setRole('admin')">Administrator</button>
+                <button id="r-user" class="flex-1 py-3 border-2 rounded-2xl font-bold bg-black text-white" onclick="setRole('user')">Customer</button>
+                <button id="r-admin" class="flex-1 py-3 border-2 rounded-2xl font-bold" onclick="setRole('admin')">Admin</button>
             </div>
-
             <div id="login-box" class="space-y-4">
                 <input type="email" id="l-email" placeholder="Email Address" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                <input type="password" id="l-pass" placeholder="Password" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
+                <input type="password" id="l-pass" placeholder="Password" autocomplete="off" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
                 <div class="text-right px-2">
                     <button onclick="forgotPassword()" class="text-xs text-blue-600 font-bold hover:underline">Forgot Password?</button>
                 </div>
                 <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 transition" onclick="login()">SIGN IN</button>
-                <p class="text-center text-sm text-gray-500 mt-4">New user? <button class="text-blue-600 font-bold hover:underline" onclick="toggleAuth('reg')">Create an Account</button></p>
-            </div>
+                
+                <div class="relative flex items-center gap-4 my-6">
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                    <span class="text-[10px] font-black text-gray-400 uppercase">OR CONTINUE WITH</span>
+                    <div class="flex-1 h-px bg-gray-200"></div>
+                </div>
 
+                <button onclick="loginWithGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 py-4 rounded-2xl font-bold hover:bg-gray-50 transition group">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-5 h-5 group-hover:scale-110 transition">
+                    <span>Google Account</span>
+                </button>
+
+                <p class="text-center text-sm text-gray-500 mt-4">New user? <button class="text-blue-600 font-bold hover:underline" onclick="toggleAuth('reg')">Create Account</button></p>
+            </div>
             <div id="reg-box" class="hidden space-y-4">
                 <input type="text" id="reg-n" placeholder="Full Name" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
                 <input type="email" id="reg-e" placeholder="Email Address" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                <input type="password" id="reg-p" placeholder="Create Password" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                
-                <div id="otp-section" class="hidden animate-bounce">
-                    <p class="text-[10px] text-blue-600 font-bold text-center mb-2">VERIFICATION CODE SENT</p>
+                <input type="password" id="reg-p" placeholder="Create Password" autocomplete="new-password" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
+                <div id="otp-section" class="hidden space-y-4">
                     <input type="text" id="reg-otp" placeholder="Enter 6-Digit OTP" class="w-full p-4 bg-blue-50 border-blue-200 rounded-2xl border text-center font-bold tracking-widest outline-none">
+                    <div class="text-center">
+                        <button onclick="startRegistration()" class="text-xs text-blue-600 font-bold hover:underline">Resend OTP</button>
+                    </div>
                 </div>
-
-                <button id="reg-btn" class="w-full bg-black text-white py-4 rounded-2xl font-black text-lg hover:bg-gray-800 transition" onclick="handleRegistration()">REGISTER NOW</button>
+                <button id="reg-btn" class="w-full bg-black text-white py-4 rounded-2xl font-black text-lg" onclick="startRegistration()">GET OTP</button>
+                <button id="verify-btn" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hidden" onclick="verifyOtpAndRegister()">VERIFY & REGISTER</button>
                 <p class="text-center text-sm text-gray-500 mt-4"><button class="font-bold hover:underline" onclick="toggleAuth('login')">Return to Login</button></p>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div id="user-dash" class="page hidden container mx-auto px-6 py-10">
-        <h3 class="text-3xl font-black mb-8 italic">My Bookings</h3>
-        <div class="bg-white rounded-[30px] shadow-2xl overflow-x-auto border">
+    <!-- USER DASHBOARD -->
+    <section id="user-dash" class="page hidden container mx-auto px-6 py-10">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+            <div>
+                <h2 class="text-4xl font-black">User: <span id="u-display-name" class="text-blue-600">Account</span></h2>
+                <div class="flex gap-4 mt-2">
+                    <button onclick="showPage('home')" class="text-[10px] font-black uppercase text-gray-400 hover:text-blue-600 flex items-center gap-1">← Back to Home</button>
+                    <button onclick="sessionStorage.clear(); location.reload();" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 flex items-center gap-1">Log Out</button>
+                </div>
+            </div>
+            <div class="flex bg-gray-100 p-1 rounded-2xl w-full md:w-auto">
+                <button onclick="switchUserTab('history')" id="utab-history" class="user-tab flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-xs transition bg-black text-white">HISTORY</button>
+                <button onclick="switchUserTab('profile')" id="utab-profile" class="user-tab flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-xs transition text-gray-400">PROFILE</button>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="user-section-history" class="user-section bg-white rounded-[40px] shadow-xl overflow-hidden border">
             <table class="w-full text-left">
                 <thead class="bg-gray-900 text-white text-sm uppercase">
-                    <tr>
-                        <th class="p-6">Vehicle Details</th>
-                        <th class="p-6">Total Amount</th>
-                        <th class="p-6">Booking Status</th>
-                        <th class="p-6 text-right">Actions</th>
-                    </tr>
+                    <tr><th class="p-6">Vehicle</th><th class="p-6">Payment</th><th class="p-6">Status</th><th class="p-6 text-right">Ref</th></tr>
                 </thead>
                 <tbody id="u-history" class="divide-y"></tbody>
             </table>
         </div>
-    </div>
 
-    <div id="admin-dash" class="page hidden container mx-auto px-6 py-10">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="bg-white p-8 rounded-[40px] shadow-xl border h-fit">
-                <h3 class="text-2xl font-black mb-6">Add New Vehicle</h3>
+        <!-- Profile Section -->
+        <div id="user-section-profile" class="user-section hidden">
+            <div class="max-w-xl bg-gray-50 p-8 rounded-[40px] border">
+                <h3 class="text-xl font-black mb-2">My Profile</h3>
+                <p class="text-gray-400 text-xs mb-6 uppercase font-bold tracking-wider">Edit your personal information</p>
                 <div class="space-y-4">
-                    <input type="text" id="add-car-name" placeholder="Vehicle Name" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                    <input type="number" id="add-car-price" placeholder="Price per Day (₹)" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                    <input type="text" id="add-car-loc" placeholder="Operating City" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                    <input type="text" id="add-car-img" placeholder="Vehicle Image URL" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                    <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black" onclick="addNewCar()">ADD TO FLEET</button>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Full Name</label>
+                        <input type="text" id="u-prof-n" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Mobile Number</label>
+                        <input type="text" id="u-prof-m" placeholder="Add mobile number" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Email Address</label>
+                        <input type="email" id="u-prof-e" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <button onclick="updateProfile('user')" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 transition">UPDATE PROFILE</button>
                 </div>
             </div>
-            <div class="lg:col-span-2 bg-white rounded-[40px] shadow-xl p-8 border overflow-x-auto">
-                <h3 class="text-2xl font-black mb-6">Manage All Reservations</h3>
-                <table class="w-full text-left">
-                    <thead class="text-xs font-bold text-gray-400 uppercase border-b">
-                        <tr>
-                            <th class="pb-4">Customer/Vehicle</th>
-                            <th class="pb-4">Total</th>
-                            <th class="pb-4">Status</th>
-                            <th class="pb-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="a-pending-bookings" class="divide-y"></tbody>
-                </table>
+        </div>
+    </section>
+
+    <!-- ADMIN DASHBOARD -->
+    <section id="admin-dash" class="page hidden container mx-auto px-6 py-10">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+            <div>
+                <h2 class="text-4xl font-black">Admin: <span id="a-display-name" class="text-blue-600">Control</span></h2>
+                <div class="flex gap-4 mt-2">
+                    <button onclick="showPage('home')" class="text-[10px] font-black uppercase text-gray-400 hover:text-blue-600 flex items-center gap-1">← Back to Home</button>
+                    <button onclick="sessionStorage.clear(); location.reload();" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 flex items-center gap-1">Log Out</button>
+                </div>
+            </div>
+            <div class="flex bg-gray-100 p-1 rounded-2xl w-full md:w-auto">
+                <button onclick="switchAdminTab('bookings')" id="tab-bookings" class="admin-tab flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-xs transition bg-black text-white">BOOKINGS</button>
+                <button onclick="switchAdminTab('fleet')" id="tab-fleet" class="admin-tab flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-xs transition text-gray-400">FLEET</button>
+                <button onclick="switchAdminTab('settings')" id="tab-settings" class="admin-tab flex-1 md:flex-none px-6 py-3 rounded-xl font-black text-xs transition text-gray-400">SETTINGS</button>
             </div>
         </div>
-    </div>
 
-    <div id="reset-modal" class="modal hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="bg-white rounded-[40px] w-full max-w-md p-10 shadow-2xl">
-            <h3 class="text-2xl font-black mb-2">Reset Password</h3>
-            <p id="reset-msg" class="text-xs text-gray-500 mb-6 text-center">An OTP has been sent to your email.</p>
-            <div class="space-y-4">
-                <input type="text" id="reset-otp" placeholder="Enter 6-Digit OTP" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none text-center font-bold tracking-widest">
-                <input type="password" id="reset-new-pass" placeholder="Enter New Password" class="w-full p-4 bg-gray-50 rounded-2xl border outline-none">
-                <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg" onclick="verifyAndResetPassword()">UPDATE PASSWORD</button>
-                <button class="w-full py-2 text-gray-400 text-xs" onclick="closeModal()">Cancel</button>
+        <!-- Bookings Section -->
+        <div id="admin-section-bookings" class="admin-section space-y-6">
+            <div id="a-stats" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-blue-600 text-white p-8 rounded-[40px] shadow-xl">
+                    <p class="text-[10px] font-black uppercase opacity-60 mb-1">Total Earnings</p>
+                    <h3 id="a-total-earnings" class="text-3xl font-black">₹0</h3>
+                </div>
+                <div class="bg-black text-white p-8 rounded-[40px] shadow-xl">
+                    <p class="text-[10px] font-black uppercase opacity-60 mb-1">Total Bookings</p>
+                    <h3 id="a-total-bookings" class="text-3xl font-black">0</h3>
+                </div>
+                <div id="active-users-stat" class="bg-gray-100 p-8 rounded-[40px] border shadow-sm">
+                    <p class="text-[10px] font-black uppercase text-gray-400 mb-1">Active Users</p>
+                    <h3 id="a-total-users" class="text-3xl font-black">0</h3>
+                </div>
+            </div>
+            <div id="a-bookings-list" class="space-y-4"></div>
+        </div>
+
+        <!-- Fleet Section -->
+        <div id="admin-section-fleet" class="admin-section hidden space-y-10">
+            <div class="bg-gray-50 p-8 rounded-[40px] border">
+                <h3 class="text-xl font-black mb-6">Add New Vehicle</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="add-car-name" placeholder="Vehicle Name" class="p-4 bg-white rounded-2xl border outline-none">
+                    <input type="number" id="add-car-price" placeholder="Price per Day" class="p-4 bg-white rounded-2xl border outline-none">
+                    <input type="text" id="add-car-loc" placeholder="City/Location" class="p-4 bg-white rounded-2xl border outline-none">
+                    <input type="text" id="add-car-img" placeholder="Image URL" class="p-4 bg-white rounded-2xl border outline-none">
+                </div>
+                <button class="mt-6 bg-black text-white px-10 py-4 rounded-2xl font-black hover:bg-blue-600 transition" onclick="addNewCar()">ADD TO FLEET</button>
+            </div>
+            <div id="a-fleet-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </div>
+
+        <!-- Settings Section -->
+        <div id="admin-section-settings" class="admin-section hidden space-y-8">
+            <!-- Profile Settings -->
+            <div class="max-w-xl bg-gray-50 p-8 rounded-[40px] border">
+                <h3 class="text-xl font-black mb-2">My Profile</h3>
+                <p class="text-gray-400 text-xs mb-6 uppercase font-bold tracking-wider">Edit your personal information</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Full Name</label>
+                        <input type="text" id="prof-n" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Mobile Number</label>
+                        <input type="text" id="prof-m" placeholder="Add mobile number" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Email Address</label>
+                        <input type="email" id="prof-e" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold">
+                    </div>
+                    <button onclick="updateProfile()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 transition">UPDATE PROFILE</button>
+                </div>
+            </div>
+
+            <!-- Payment Settings -->
+            <div class="max-w-xl bg-gray-50 p-8 rounded-[40px] border">
+                <h3 class="text-xl font-black mb-2">Payment Settings</h3>
+                <p class="text-gray-400 text-xs mb-6 uppercase font-bold tracking-wider">Configure your business details</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-400 mb-2 uppercase">Your Business UPI ID</label>
+                        <input type="text" id="admin-upi-id" value="satyamdubey7582@okicici" class="w-full p-4 bg-white border rounded-2xl outline-none font-bold text-blue-600">
+                    </div>
+                    <button onclick="updateAdminUpi()" class="w-full bg-black text-white py-4 rounded-2xl font-black hover:bg-green-600 transition">SAVE SETTINGS</button>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div id="kyc-modal" class="modal hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div id="kyc-modal" class="modal hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
         <div class="bg-white rounded-[40px] w-full max-w-lg p-10 shadow-2xl">
-            <h3 class="text-2xl font-black mb-4">Identity Verification</h3>
-            <input type="text" id="kyc-no" placeholder="Enter Aadhar or DL Number" class="w-full p-4 bg-gray-100 rounded-2xl border mb-4 outline-none">
-            <input type="file" id="kyc-file" class="w-full text-sm mb-6">
-            <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black" onclick="document.getElementById('kyc-modal').classList.add('hidden'); document.getElementById('pay-modal').classList.remove('hidden');">CONTINUE TO PAYMENT</button>
+            <h3 class="text-2xl font-black mb-4">Identity & Duration</h3>
+            <div class="space-y-4">
+                <input type="text" id="kyc-no" placeholder="Aadhar or DL Number" class="w-full p-4 bg-gray-100 rounded-2xl border outline-none">
+                <input type="number" id="booking-days" placeholder="Number of Days (e.g. 1, 3, 5)" min="1" class="w-full p-4 bg-gray-100 rounded-2xl border outline-none">
+            </div>
+            <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black mt-6" onclick="proceedToPayment()">NEXT: PAYMENT</button>
             <button class="w-full py-2 text-gray-400 text-xs mt-2" onclick="closeModal()">Cancel</button>
         </div>
     </div>
 
-    <div id="pay-modal" class="modal hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div class="bg-white rounded-[40px] w-full max-w-md p-10 text-center shadow-2xl">
-            <h3 class="text-2xl font-black mb-4 text-blue-600">SECURE PAYMENT</h3>
-            <div id="pay-amount-display" class="text-3xl font-black mb-4"></div>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=GadiWalaPayment" class="mx-auto mb-4 border p-2">
-            <input type="file" id="pay-screenshot" class="w-full text-xs mb-6">
-            <button class="w-full bg-green-500 text-white py-4 rounded-2xl font-black" onclick="finalSubmit()">COMPLETE BOOKING</button>
+    <div id="pay-modal" class="modal hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[40px] w-full max-w-lg p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <h3 class="text-2xl font-black mb-2">Complete Payment</h3>
+            <p id="pay-amount-display" class="text-blue-600 font-black text-xl mb-6">Total: ₹0</p>
+            
+            <div class="space-y-4">
+                <!-- UPI / QR Option -->
+                <div class="border-2 border-blue-100 rounded-3xl p-6 bg-blue-50/30">
+                    <button onclick="togglePaymentSection('upi')" class="w-full flex justify-between items-center font-black text-sm">
+                        <span>UPI / QR CODE</span>
+                        <span class="text-blue-600">⚡</span>
+                    </button>
+                    <div id="upi-section" class="hidden mt-4 text-center">
+                        <div id="qr-container" class="bg-white p-4 rounded-2xl inline-block shadow-sm border mb-4">
+                            <img id="upi-qr" src="" alt="UPI QR" class="w-40 h-40">
+                            <p id="upi-text-display" class="text-xs font-black mt-2 text-blue-600">UPI: satyamdubey7582@okicici</p>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-4 uppercase font-bold">Scan with Any UPI App (GPay, PhonePe, Paytm)</p>
+                        
+                        <!-- Upload Payment Screenshot (Mandatory for UPI) -->
+                        <div class="mb-4">
+                            <label class="block text-[10px] font-black text-red-500 mb-2 uppercase">Required: Upload Payment Screenshot</label>
+                            <input type="file" id="pay-screenshot" accept="image/*" class="w-full text-xs p-2 bg-white rounded-xl border-2 border-dashed border-red-300 outline-none">
+                            <p class="text-[8px] text-gray-400 mt-1 uppercase font-bold">Booking will not proceed without proof.</p>
+                        </div>
+
+                        <button onclick="finalSubmit('Paid via UPI QR')" class="w-full bg-blue-600 text-white py-3 rounded-2xl font-black text-xs">CONFIRM & BOOK</button>
+                    </div>
+                </div>
+
+                <!-- Card Option -->
+                <div class="border-2 border-gray-100 rounded-3xl p-6">
+                    <button onclick="togglePaymentSection('card')" class="w-full flex justify-between items-center font-black text-sm text-gray-400">
+                        <span>CREDIT / DEBIT CARD</span>
+                        <span>💳</span>
+                    </button>
+                    <div id="card-section" class="hidden mt-4 space-y-3">
+                        <input type="text" placeholder="Card Number" class="w-full p-3 bg-gray-50 rounded-xl border outline-none text-sm">
+                        <div class="flex gap-2">
+                            <input type="text" placeholder="MM/YY" class="flex-1 p-3 bg-gray-50 rounded-xl border outline-none text-sm">
+                            <input type="password" placeholder="CVV" class="flex-1 p-3 bg-gray-50 rounded-xl border outline-none text-sm">
+                        </div>
+                        <button onclick="start3DSimulation()" class="w-full bg-black text-white py-3 rounded-2xl font-black text-xs">PAY NOW (3D SECURE)</button>
+                    </div>
+                </div>
+
+                <!-- Net Banking Option -->
+                <div class="border-2 border-gray-100 rounded-3xl p-6">
+                    <button onclick="togglePaymentSection('net')" class="w-full flex justify-between items-center font-black text-sm text-gray-400">
+                        <span>NET BANKING</span>
+                        <span>🏦</span>
+                    </button>
+                    <div id="net-section" class="hidden mt-4">
+                        <select class="w-full p-3 bg-gray-50 rounded-xl border outline-none text-sm mb-3">
+                            <option>Select Bank</option>
+                            <option>HDFC Bank</option>
+                            <option>SBI</option>
+                            <option>ICICI Bank</option>
+                            <option>Axis Bank</option>
+                        </select>
+                        <button onclick="finalSubmit('Paid via Net Banking')" class="w-full bg-black text-white py-3 rounded-2xl font-black text-xs">PROCEED TO BANK</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="w-full py-2 text-gray-400 text-xs mt-6" onclick="closeModal()">Cancel & Go Back</button>
+        </div>
+    </div>
+
+    <div id="forgot-modal" class="modal hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[40px] w-full max-w-md p-10 shadow-2xl relative">
+            <h3 class="text-2xl font-black mb-4">Reset Password</h3>
+            
+            <div id="forgot-step-1" class="space-y-4">
+                <p class="text-gray-500 text-sm">Enter your registered email address.</p>
+                <input type="email" id="f-email" placeholder="Email Address" class="w-full p-4 bg-gray-100 rounded-2xl border outline-none">
+                <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black" onclick="processForgotPassword()">SEND OTP</button>
+            </div>
+
+            <div id="forgot-step-2" class="hidden space-y-4">
+                <p class="text-gray-500 text-sm">Enter the 6-digit OTP sent to your email.</p>
+                <input type="text" id="f-otp" placeholder="Enter OTP" class="w-full p-4 bg-blue-50 border-blue-200 rounded-2xl border text-center font-bold tracking-widest outline-none">
+                <button class="w-full bg-black text-white py-4 rounded-2xl font-black" onclick="verifyForgotOtp()">VERIFY OTP</button>
+            </div>
+
+            <div id="forgot-step-3" class="hidden space-y-4">
+                <p class="text-gray-500 text-sm">Enter your new password.</p>
+                <input type="password" id="f-new-pass" placeholder="New Password" class="w-full p-4 bg-gray-100 rounded-2xl border outline-none">
+                <button class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black" onclick="resetPasswordFinal()">RESET PASSWORD</button>
+            </div>
+
             <button class="w-full py-2 text-gray-400 text-xs mt-2" onclick="closeModal()">Cancel</button>
         </div>
     </div>
+
+    <!-- Google Login Simulation Modal -->
+    <div id="google-modal" class="modal hidden fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[40px] w-full max-w-sm p-10 shadow-2xl text-center">
+            <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-12 h-12 mx-auto mb-6">
+            <h3 class="text-xl font-black mb-2">Google Sign In</h3>
+            <p class="text-gray-400 text-xs mb-8 uppercase font-bold tracking-widest">Select an account</p>
+            
+            <div class="space-y-3">
+                <button onclick="simulateGoogleLogin('Satyam Dubey', 'satyam@gmail.com')" class="w-full flex items-center gap-4 p-4 border-2 border-blue-50 bg-blue-50/20 rounded-2xl hover:bg-blue-50 transition text-left group">
+                    <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">S</div>
+                    <div>
+                        <div class="text-sm font-bold">Satyam Dubey</div>
+                        <div class="text-[10px] text-gray-400">satyam@gmail.com</div>
+                    </div>
+                    <span class="ml-auto opacity-0 group-hover:opacity-100 transition text-blue-600">✓</span>
+                </button>
+                <button onclick="simulateGoogleLogin('Guest User', 'guest@gmail.com')" class="w-full flex items-center gap-4 p-4 border-2 border-gray-50 rounded-2xl hover:bg-gray-50 transition text-left group">
+                    <div class="w-10 h-10 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center font-bold">G</div>
+                    <div>
+                        <div class="text-sm font-bold">Guest User</div>
+                        <div class="text-[10px] text-gray-400">guest@gmail.com</div>
+                    </div>
+                    <span class="ml-auto opacity-0 group-hover:opacity-100 transition text-gray-400">✓</span>
+                </button>
+            </div>
+            
+            <button class="w-full py-2 text-gray-400 text-[10px] mt-8 uppercase font-bold" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+
+    <div id="preview-modal" class="modal hidden fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4" onclick="closeModal()">
+        <img id="preview-img" src="" class="max-w-full max-h-full rounded-2xl shadow-2xl">
+    </div>
+
+    <!-- 3D Secure (3DS) Modal -->
+    <div id="tds-modal" class="modal hidden fixed inset-0 z-[250] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[40px] w-full max-w-sm p-10 shadow-2xl text-center">
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl font-black shadow-inner">3DS</div>
+            </div>
+            <h3 class="text-xl font-black mb-2">3D Secure Verification</h3>
+            <p class="text-gray-400 text-xs mb-8">A verification code has been sent to your registered mobile number for your card payment.</p>
+            
+            <div class="space-y-4">
+                <input type="text" id="tds-otp" placeholder="Enter 6-Digit OTP" class="w-full p-4 bg-gray-50 border rounded-2xl text-center font-bold tracking-widest outline-none">
+                <button onclick="verifyTDS()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg hover:scale-105 transition">VERIFY & PAY</button>
+            </div>
+            
+            <button class="w-full py-2 text-gray-400 text-[10px] mt-4 uppercase font-bold" onclick="closeModal()">Cancel Transaction</button>
+        </div>
+    </div>
+
+    <!-- Booking Details Modal -->
+    <div id="booking-modal" class="modal hidden fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-[40px] w-full max-w-lg p-10 shadow-2xl">
+            <div class="flex justify-between items-start mb-6">
+                <h3 class="text-2xl font-black">Booking <span class="text-blue-600">Details</span></h3>
+                <span id="bm-id" class="px-3 py-1 bg-gray-100 text-[10px] font-black rounded-full uppercase text-gray-400">#0000</span>
+            </div>
+            <div class="space-y-6">
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Customer</p>
+                        <p id="bm-user" class="font-bold text-lg">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Vehicle</p>
+                        <p id="bm-car" class="font-bold text-lg text-blue-600">--</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Duration</p>
+                        <p id="bm-days" class="font-bold text-lg">-- Days</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Total Payment</p>
+                        <p id="bm-total" class="font-bold text-lg">₹0</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Status</p>
+                    <span id="bm-status" class="px-4 py-1 rounded-full text-xs font-black uppercase bg-blue-50 text-blue-600">--</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-1">Payment Method</p>
+                    <p id="bm-pay" class="text-sm font-medium text-gray-600">--</p>
+                </div>
+                <div id="bm-screenshot-box" class="hidden">
+                    <p class="text-[10px] font-black text-gray-400 uppercase mb-2">Payment Proof</p>
+                    <img id="bm-screenshot" src="" class="w-full h-32 object-cover rounded-2xl cursor-pointer hover:opacity-80 transition" onclick="viewScreenshot(this.src)">
+                </div>
+            </div>
+            <button class="w-full bg-black text-white py-4 rounded-2xl font-black mt-10 hover:bg-blue-600 transition" onclick="closeModal()">CLOSE</button>
+        </div>
+    </div>
+
+    <footer class="bg-gray-900 text-white pt-16 pb-8 mt-20">
+        <div class="container mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <div class="space-y-4">
+                    <div class="text-3xl font-black tracking-tighter">
+                        GADI<span class="text-blue-600">WALA</span>
+                    </div>
+                    <p class="text-gray-400 text-sm leading-relaxed">
+                        Premium vehicle rentals for your every journey. Experience the best fleet with seamless booking and 24/7 support.
+                    </p>
+                    <div class="flex gap-4">
+                        <a href="#" class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition">f</a>
+                        <a href="#" class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition">t</a>
+                        <a href="#" class="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center hover:bg-blue-600 transition">i</a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-black mb-6 uppercase text-xs tracking-widest text-blue-600">Quick Links</h4>
+                    <ul class="space-y-3 text-sm text-gray-400">
+                        <li><a href="#" onclick="showPage('home')" class="hover:text-white transition">Explore Fleet</a></li>
+                        <li><a href="#" onclick="showPage('auth')" class="hover:text-white transition">My Account</a></li>
+                        <li><a href="#" class="hover:text-white transition">How it Works</a></li>
+                        <li><a href="#" class="hover:text-white transition">Pricing</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-black mb-6 uppercase text-xs tracking-widest text-blue-600">Support</h4>
+                    <ul class="space-y-3 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-white transition">Help Center</a></li>
+                        <li><a href="#" class="hover:text-white transition">Terms of Service</a></li>
+                        <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="#" class="hover:text-white transition">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-black mb-6 uppercase text-xs tracking-widest text-blue-600">Contact</h4>
+                    <ul class="space-y-3 text-sm text-gray-400">
+                        <li class="flex items-center gap-2">📍 <span>Delhi, India</span></li>
+                        <li class="flex items-center gap-2">📞 <span>+91 98765 43210</span></li>
+                        <li class="flex items-center gap-2">✉️ <span>support@gadiwala.com</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="pt-8 border-t border-gray-800 text-center text-xs text-gray-500 font-bold uppercase tracking-widest">
+                &copy; 2026 GADIWALA RENTALS. ALL RIGHTS RESERVED.
+            </div>
+        </div>
+    </footer>
 
     <script src="script.js"></script>
 </body>
