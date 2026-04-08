@@ -1,12 +1,12 @@
 // ==========================================
 // 1. LIVE CONFIGURATION & STATE
 // ==========================================
-const API_URL = "https://gadiwala.onrender.com"; // Aapka Render Live URL
+const API_URL = "https://gadiwala.onrender.com"; 
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
 let searchQuery = "", currentCity = "", generatedOtp = "";
 
-// Initialize EmailJS (UBoCaMD4uz6NNv7jD)
+// EmailJS Initialization
 (function(){ emailjs.init("UBoCaMD4uz6NNv7jD"); })();
 
 const showLoader = () => document.getElementById('loader')?.classList.remove('hidden');
@@ -18,7 +18,7 @@ const hideLoader = () => document.getElementById('loader')?.classList.add('hidde
 async function loadAllData() {
     showLoader();
     try {
-        // Render endpoints se data fetch karna (/cars aur /users confirmed)
+        // Aapke live backend ke resources: /cars aur /users
         const [resC, resU, resB] = await Promise.all([
             fetch(`${API_URL}/cars`).then(r => r.json()),
             fetch(`${API_URL}/users`).then(r => r.json()),
@@ -29,49 +29,31 @@ async function loadAllData() {
         users = resU;
         bookings = resB;
         
-        console.log("Data Loaded Successfully");
+        console.log("Data Loaded Successfully from Render");
         
         updateNav();
         renderCars();
-        
-        if(activeUser?.role === 'user') renderUserDash();
-        if(activeUser?.role === 'admin') renderAdminDash();
-        
-        fetchUserLocation(); // Auto-detect city logic
+        fetchUserLocation();
     } catch(e) { 
-        console.error("Connection Error:", e);
+        console.error("API Error:", e);
         const list = document.getElementById('car-list');
-        if(list) list.innerHTML = `<div class="col-span-full text-center py-10">Server is waking up... Please refresh in 20 seconds.</div>`;
+        if(list) {
+            list.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">
+                Server is waking up... Please refresh in 20 seconds.
+            </div>`;
+        }
     } finally { hideLoader(); }
 }
 
 // ==========================================
-// 3. AUTHENTICATION (Login/Signup/OTP)
-// ==========================================
-async function login() {
-    const e = document.getElementById('l-email').value.trim().toLowerCase();
-    const p = document.getElementById('l-pass').value.trim();
-    if(!e || !p) return alert("Please fill all fields.");
-
-    const userMatch = users.find(x => x.email.toLowerCase() === e && x.pass === p);
-    if(userMatch) { 
-        activeUser = userMatch; 
-        sessionStorage.setItem('activeUser', JSON.stringify(userMatch)); 
-        location.reload(); 
-    } else {
-        alert("Invalid email or password.");
-    }
-}
-
-// ==========================================
-// 4. VEHICLE DISPLAY & SEARCH
+// 3. VEHICLE RENDERING
 // ==========================================
 function renderCars() {
     const list = document.getElementById('car-list');
     if(!list) return;
 
     if(!cars.length) {
-        list.innerHTML = `<p class="text-center col-span-full py-10">Connecting to server...</p>`;
+        list.innerHTML = `<p class="text-center col-span-full py-10">No vehicles found on server.</p>`;
         return;
     }
 
@@ -85,7 +67,7 @@ function renderCars() {
         return `
         <div class="car-card bg-white rounded-[30px] shadow-lg overflow-hidden border border-gray-100 transition hover:shadow-2xl">
             <div class="relative h-44 overflow-hidden">
-                <img src="${c.img}" class="w-full h-full object-cover transform hover:scale-110 transition duration-500">
+                <img src="${c.img}" class="w-full h-full object-cover">
                 <div class="absolute top-3 left-3 ${isAvailable ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase shadow-md">
                     ${isAvailable ? 'Available' : 'Booked'}
                 </div>
@@ -103,14 +85,20 @@ function renderCars() {
     }).join('');
 }
 
-function handleSearch(val) {
-    searchQuery = val;
-    renderCars();
+// ==========================================
+// 4. HELPERS & NAVIGATION
+// ==========================================
+function updateNav() {
+    const navAuth = document.getElementById('nav-auth');
+    const navUser = document.getElementById('nav-user');
+    if(activeUser && navAuth && navUser) {
+        navAuth.classList.add('hidden');
+        navUser.classList.remove('hidden');
+        const nameEl = document.getElementById('user-name-nav');
+        if(nameEl) nameEl.innerText = activeUser.name.split(' ')[0];
+    }
 }
 
-// ==========================================
-// 5. HELPER FUNCTIONS
-// ==========================================
 async function fetchUserLocation() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -125,20 +113,9 @@ async function fetchUserLocation() {
     });
 }
 
-function updateNav() {
-    const navAuth = document.getElementById('nav-auth');
-    const navUser = document.getElementById('nav-user');
-    if(activeUser && navAuth && navUser) {
-        navAuth.classList.add('hidden');
-        navUser.classList.remove('hidden');
-        const nameEl = document.getElementById('user-name-nav');
-        if(nameEl) nameEl.innerText = activeUser.name.split(' ')[0];
-    }
-}
-
-function logout() {
-    sessionStorage.clear();
-    location.reload();
+function handleSearch(val) {
+    searchQuery = val;
+    renderCars();
 }
 
 // Initialization
