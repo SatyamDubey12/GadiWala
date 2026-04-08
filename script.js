@@ -13,35 +13,34 @@ const showLoader = () => document.getElementById('loader')?.classList.remove('hi
 const hideLoader = () => document.getElementById('loader')?.classList.add('hidden');
 
 // ==========================================
-// 2. DATA SYNC (Backend connection)
+// 2. DATA SYNC (Matched with your JSON keys)
 // ==========================================
 async function loadAllData() {
     showLoader();
     try {
-        // Aapke live backend ke resources: /cars aur /users
-        const [resC, resU, resB] = await Promise.all([
-            fetch(`${API_URL}/cars`).then(r => r.json()),
-            fetch(`${API_URL}/users`).then(r => r.json()),
-            fetch(`${API_URL}/bookings`).then(r => r.ok ? r.json() : []).catch(() => [])
+        // Aapke JSON mein 'vehicles' aur 'users' keys hain
+        const [resV, resU] = await Promise.all([
+            fetch(`${API_URL}/vehicles`).then(r => r.json()),
+            fetch(`${API_URL}/users`).then(r => r.json())
         ]);
 
-        cars = resC;
+        // Backend ke 'vehicles' ko frontend ke 'cars' array mein set kar rahe hain
+        cars = resV; 
         users = resU;
-        bookings = resB;
         
-        console.log("Data Loaded Successfully from Render");
+        console.log("Data Loaded successfully:", cars);
         
         updateNav();
         renderCars();
+        
+        if(activeUser?.role === 'user') renderUserDash();
+        if(activeUser?.role === 'admin') renderAdminDash();
+        
         fetchUserLocation();
     } catch(e) { 
-        console.error("API Error:", e);
+        console.error("Connection Error:", e);
         const list = document.getElementById('car-list');
-        if(list) {
-            list.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">
-                Server is waking up... Please refresh in 20 seconds.
-            </div>`;
-        }
+        if(list) list.innerHTML = `<div class="col-span-full text-center py-10">Server is waking up... Please refresh in 20 seconds.</div>`;
     } finally { hideLoader(); }
 }
 
@@ -52,7 +51,7 @@ function renderCars() {
     const list = document.getElementById('car-list');
     if(!list) return;
 
-    if(!cars.length) {
+    if(!cars || cars.length === 0) {
         list.innerHTML = `<p class="text-center col-span-full py-10">No vehicles found on server.</p>`;
         return;
     }
@@ -67,7 +66,7 @@ function renderCars() {
         return `
         <div class="car-card bg-white rounded-[30px] shadow-lg overflow-hidden border border-gray-100 transition hover:shadow-2xl">
             <div class="relative h-44 overflow-hidden">
-                <img src="${c.img}" class="w-full h-full object-cover">
+                <img src="${c.img}" class="w-full h-full object-cover transform hover:scale-110 transition duration-500">
                 <div class="absolute top-3 left-3 ${isAvailable ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase shadow-md">
                     ${isAvailable ? 'Available' : 'Booked'}
                 </div>
@@ -86,17 +85,11 @@ function renderCars() {
 }
 
 // ==========================================
-// 4. HELPERS & NAVIGATION
+// 4. HELPERS
 // ==========================================
-function updateNav() {
-    const navAuth = document.getElementById('nav-auth');
-    const navUser = document.getElementById('nav-user');
-    if(activeUser && navAuth && navUser) {
-        navAuth.classList.add('hidden');
-        navUser.classList.remove('hidden');
-        const nameEl = document.getElementById('user-name-nav');
-        if(nameEl) nameEl.innerText = activeUser.name.split(' ')[0];
-    }
+function handleSearch(val) {
+    searchQuery = val;
+    renderCars();
 }
 
 async function fetchUserLocation() {
@@ -113,10 +106,16 @@ async function fetchUserLocation() {
     });
 }
 
-function handleSearch(val) {
-    searchQuery = val;
-    renderCars();
+function updateNav() {
+    const navAuth = document.getElementById('nav-auth');
+    const navUser = document.getElementById('nav-user');
+    if(activeUser && navAuth && navUser) {
+        navAuth.classList.add('hidden');
+        navUser.classList.remove('hidden');
+        const nameEl = document.getElementById('user-name-nav');
+        if(nameEl) nameEl.innerText = activeUser.name.split(' ')[0];
+    }
 }
 
-// Initialization
+// Initialize
 window.onload = loadAllData;
