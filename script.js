@@ -1,7 +1,6 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-// IMPORTANT: Render URL update kiya gaya hai
 const API_URL = "https://gadiwala.onrender.com"; 
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
@@ -20,18 +19,13 @@ const hideLoader = () => document.getElementById('loader')?.classList.add('hidde
 async function loadAllData() {
     showLoader();
     try {
-        // Aapke JSON keys: 'vehicles', 'users', 'bookings'
-        const [resV, resU, resB] = await Promise.all([
-            fetch(`${API_URL}/vehicles`).then(r => r.json()),
+        const [resC, resU, resB] = await Promise.all([
+            fetch(`${API_URL}/cars`).then(r => r.json()),
             fetch(`${API_URL}/users`).then(r => r.json()),
             fetch(`${API_URL}/bookings`).then(r => r.ok ? r.json() : []).catch(() => [])
         ]);
 
-        cars = resV; // Mapping 'vehicles' from JSON to 'cars' variable
-        users = resU;
-        bookings = resB;
-        
-        console.log("Sync Complete:", { cars: cars.length, users: users.length });
+        cars = resC; users = resU; bookings = resB;
         
         updateNav();
         renderCars();
@@ -43,137 +37,134 @@ async function loadAllData() {
     } catch(e) { 
         console.error("Connection Error:", e);
         const list = document.getElementById('car-list');
-        if(list) list.innerHTML = `<div class="col-span-full text-center py-10">Server is waking up (Render Free Tier)... Please refresh in 20 seconds.</div>`;
+        if(list) list.innerHTML = `<div class="col-span-full text-center py-10 font-bold text-orange-500">Server is waking up... Please refresh in 30 seconds.</div>`;
     } finally { hideLoader(); }
 }
 
 // ==========================================
-// 3. LOGIN & OTP LOGIC
+// 3. AUTH & OTP FEATURES (EmailJS)
 // ==========================================
-async function login() {
-    const e = document.getElementById('l-email').value.trim().toLowerCase();
-    const p = document.getElementById('l-pass').value.trim();
-    if(!e || !p) return alert("Please fill all fields.");
-
-    const userMatch = users.find(x => x.email.toLowerCase() === e && x.pass === p);
+async function startRegistration() {
+    const e = document.getElementById('reg-e').value.trim();
+    if(!e) return alert("Enter email");
     
-    if(userMatch) {
-        // Login OTP Simulation
-        generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-        alert(`Your Verification Code: ${generatedOtp}`);
-        
-        const userOtp = prompt("Enter 4-digit OTP sent to your device:");
-        if(userOtp === generatedOtp) {
-            activeUser = userMatch; 
-            sessionStorage.setItem('activeUser', JSON.stringify(userMatch)); 
-            location.reload(); 
-        } else {
-            alert("Invalid OTP!");
-        }
-    } else {
-        alert("Invalid email or password.");
-    }
-}
-
-// ==========================================
-// 4. PAYMENT & BOOKING SUBMIT
-// ==========================================
-async function finalSubmit(payStatus) {
-    const fileInput = document.getElementById('pay-screenshot');
-    let screenshotBase64 = null;
-
-    // Screenshot mandatory for UPI
-    if (payStatus.includes('UPI') && (!fileInput || !fileInput.files[0])) {
-        return alert("Please upload payment screenshot.");
-    }
-
-    if (fileInput && fileInput.files[0]) {
-        screenshotBase64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(fileInput.files[0]);
-        });
-    }
-
-    const data = { 
-        ...tempBooking, 
-        id: Date.now().toString(),
-        payment: payStatus, 
-        screenshot: screenshotBase64, 
-        status: 'Pending', 
-        date: new Date().toLocaleDateString() 
-    };
-
+    generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     showLoader();
     try {
-        const res = await fetch(`${API_URL}/bookings`, {
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify(data)
+        await emailjs.send("service_8bkoyy9", "template_7diwc1a", { 
+            email: e, passcode: `GadiWala OTP: ${generatedOtp}` 
         });
-        if(res.ok) {
-            alert("Booking Successful! Check Dashboard for status.");
-            location.reload();
-        }
-    } catch(e) { alert("Booking failed. Server issue."); }
+        alert("OTP sent to your email!");
+        document.getElementById('otp-section').classList.remove('hidden');
+    } catch(err) { alert("Failed to send OTP."); }
     finally { hideLoader(); }
 }
 
-// ==========================================
-// 5. VEHICLE RENDERING (Search & City Filter)
-// ==========================================
-function renderCars() {
-    const list = document.getElementById('car-list');
-    if(!list) return;
-
-    if(!cars || cars.length === 0) {
-        list.innerHTML = `<p class="text-center col-span-full py-10">Searching for vehicles...</p>`;
-        return;
-    }
-
-    const filtered = cars.filter(c => 
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        (c.city && c.city.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
-    list.innerHTML = filtered.map(c => {
-        const isAvailable = c.status !== 'Not Available';
-        return `
-        <div class="car-card bg-white rounded-[30px] shadow-lg overflow-hidden border border-gray-100 transition hover:shadow-2xl">
-            <div class="relative h-44 overflow-hidden">
-                <img src="${c.img}" class="w-full h-full object-cover">
-                <div class="absolute top-3 left-3 ${isAvailable ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase shadow-md">
-                    ${isAvailable ? 'Available' : 'Booked'}
-                </div>
-                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-black">₹${c.price}/day</div>
-            </div>
-            <div class="p-5">
-                <h4 class="text-lg font-black text-gray-800">${c.name}</h4>
-                <p class="text-gray-400 text-xs mb-4 flex items-center gap-1">📍 ${c.city || 'Greater Noida'}</p>
-                <button onclick="${isAvailable ? `initBooking('${c.id}')` : ''}" ${!isAvailable ? 'disabled' : ''} 
-                    class="w-full py-3 rounded-2xl text-xs font-bold transition ${isAvailable ? 'bg-gray-900 text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}">
-                    ${isAvailable ? 'BOOK NOW' : 'NOT AVAILABLE'}
-                </button>
-            </div>
-        </div>`;
-    }).join('');
+function login() {
+    const e = document.getElementById('l-email').value.trim().toLowerCase();
+    const p = document.getElementById('l-pass').value.trim();
+    const userMatch = users.find(x => x.email.toLowerCase() === e && x.pass === p);
+    
+    if(userMatch) {
+        activeUser = userMatch;
+        sessionStorage.setItem('activeUser', JSON.stringify(userMatch));
+        location.reload();
+    } else { alert("Invalid credentials."); }
 }
 
-// Nav update function
-function updateNav() {
-    if(activeUser) {
-        document.getElementById('nav-auth')?.classList.add('hidden');
-        document.getElementById('nav-user')?.classList.remove('hidden');
-        const nameDisplay = document.getElementById('user-name-nav');
-        if(nameDisplay) nameDisplay.innerText = activeUser.name.split(' ')[0];
-    }
+// ==========================================
+// 4. LOCATION & SEARCH FEATURES
+// ==========================================
+async function fetchUserLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await res.json();
+            currentCity = data.address.city || data.address.town || "Greater Noida";
+            document.getElementById('loc-text').innerHTML = `📍 Location: <b>${currentCity}</b>`;
+            renderCars();
+        } catch(e) { console.warn("Location error"); }
+    });
 }
 
-// Search Handler
 function handleSearch(val) {
     searchQuery = val;
     renderCars();
 }
 
-// Initialization
+// ==========================================
+// 5. BOOKING & PAYMENT (QR CODE)
+// ==========================================
+function initBooking(carId) {
+    if(!activeUser) return alert("Please Login");
+    const car = cars.find(c => c.id == carId);
+    tempBooking = { carId: car.id, carName: car.name, price: car.price, userId: activeUser.id };
+    
+    const upiID = "satyamdubey7582@okicici"; 
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${upiID}&pn=GadiWala&am=${car.price}&cu=INR`;
+    document.getElementById('upi-qr').src = qrUrl;
+    document.getElementById('pay-modal').classList.remove('hidden');
+}
+
+async function finalSubmit(payStatus) {
+    const data = { 
+        ...tempBooking, id: Date.now().toString(),
+        payment: payStatus, status: 'Pending', date: new Date().toLocaleDateString() 
+    };
+    showLoader();
+    try {
+        await fetch(`${API_URL}/bookings`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+        });
+        alert("Booking Successful!");
+        location.reload();
+    } catch(e) { alert("Error"); }
+    finally { hideLoader(); }
+}
+
+// ==========================================
+// 6. ADMIN & USER DASHBOARDS
+// ==========================================
+function renderCars() {
+    const list = document.getElementById('car-list');
+    if(!list) return;
+    const filtered = cars.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    list.innerHTML = filtered.map(c => `
+        <div class="bg-white p-4 rounded-3xl shadow-lg border">
+            <img src="${c.img}" class="h-40 w-full object-cover rounded-2xl mb-4">
+            <h4 class="font-bold">${c.name}</h4>
+            <p class="text-sm text-gray-500">₹${c.price}/day • ${c.city || 'Noida'}</p>
+            <button onclick="initBooking('${c.id}')" class="w-full mt-4 bg-black text-white py-2 rounded-xl text-xs font-bold">
+                BOOK NOW
+            </button>
+        </div>
+    `).join('');
+}
+
+function renderAdminDash() {
+    document.getElementById('a-fleet-list').innerHTML = cars.map(c => `
+        <div class="flex justify-between p-3 border-b">
+            <span>${c.name} (${c.status})</span>
+            <button onclick="deleteCar('${c.id}')" class="text-red-500">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function renderUserDash() {
+    const myB = bookings.filter(b => b.userId === activeUser.id);
+    document.getElementById('u-history').innerHTML = myB.map(b => `
+        <tr class="border-b text-sm">
+            <td class="p-3"><b>${b.carName}</b></td>
+            <td class="p-3 text-blue-600">${b.status}</td>
+        </tr>
+    `).join('');
+}
+
+// Global Actions
+const updateNav = () => { if(activeUser) document.getElementById('user-name-nav').innerText = activeUser.name; };
+async function deleteCar(id) { await fetch(`${API_URL}/cars/${id}`, {method:'DELETE'}); loadAllData(); }
+
 window.onload = loadAllData;
