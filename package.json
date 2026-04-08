@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start:json-server": "json-server --watch data.json --port 3000"
+    "start": "json-server --watch data.json --port $PORT --host 0.0.0.0"
   },
-  "devDependencies": {
+  "dependencies": {
     "json-server": "^0.17.3"
   }
 }
