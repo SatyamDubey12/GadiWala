@@ -1,24 +1,24 @@
 // ==========================================
-// 1. LIVE CONFIGURATION
+// 1. LIVE CONFIGURATION & STATE
 // ==========================================
-const API_URL = "https://gadiwala.onrender.com"; 
+const API_URL = "https://gadiwala.onrender.com"; // Aapka Render Live URL
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
 let searchQuery = "", currentCity = "", generatedOtp = "";
 
-// EmailJS Initialization
+// Initialize EmailJS (UBoCaMD4uz6NNv7jD)
 (function(){ emailjs.init("UBoCaMD4uz6NNv7jD"); })();
 
 const showLoader = () => document.getElementById('loader')?.classList.remove('hidden');
 const hideLoader = () => document.getElementById('loader')?.classList.add('hidden');
 
 // ==========================================
-// 2. DATA SYNC (RESOURCES MATCHED TO SCREENSHOT)
+// 2. DATA SYNC (Backend connection)
 // ==========================================
 async function loadAllData() {
     showLoader();
     try {
-        // Aapke screenshot ke mutabiq '/cars' aur '/users' endpoints use ho rahe hain
+        // Render endpoints se data fetch karna (/cars aur /users confirmed)
         const [resC, resU, resB] = await Promise.all([
             fetch(`${API_URL}/cars`).then(r => r.json()),
             fetch(`${API_URL}/users`).then(r => r.json()),
@@ -29,32 +29,49 @@ async function loadAllData() {
         users = resU;
         bookings = resB;
         
-        console.log("Data Loaded:", { cars, users });
+        console.log("Data Loaded Successfully");
         
-        renderCars();
         updateNav();
+        renderCars();
         
         if(activeUser?.role === 'user') renderUserDash();
         if(activeUser?.role === 'admin') renderAdminDash();
         
-        fetchUserLocation();
+        fetchUserLocation(); // Auto-detect city logic
     } catch(e) { 
-        console.error("API Error:", e);
-        // Render free tier sleep mode handle karne ke liye
+        console.error("Connection Error:", e);
         const list = document.getElementById('car-list');
         if(list) list.innerHTML = `<div class="col-span-full text-center py-10">Server is waking up... Please refresh in 20 seconds.</div>`;
     } finally { hideLoader(); }
 }
 
 // ==========================================
-// 3. VEHICLE RENDERING
+// 3. AUTHENTICATION (Login/Signup/OTP)
+// ==========================================
+async function login() {
+    const e = document.getElementById('l-email').value.trim().toLowerCase();
+    const p = document.getElementById('l-pass').value.trim();
+    if(!e || !p) return alert("Please fill all fields.");
+
+    const userMatch = users.find(x => x.email.toLowerCase() === e && x.pass === p);
+    if(userMatch) { 
+        activeUser = userMatch; 
+        sessionStorage.setItem('activeUser', JSON.stringify(userMatch)); 
+        location.reload(); 
+    } else {
+        alert("Invalid email or password.");
+    }
+}
+
+// ==========================================
+// 4. VEHICLE DISPLAY & SEARCH
 // ==========================================
 function renderCars() {
     const list = document.getElementById('car-list');
     if(!list) return;
 
     if(!cars.length) {
-        list.innerHTML = `<p class="text-center col-span-full">No vehicles available.</p>`;
+        list.innerHTML = `<p class="text-center col-span-full py-10">Connecting to server...</p>`;
         return;
     }
 
@@ -86,18 +103,27 @@ function renderCars() {
     }).join('');
 }
 
-// ==========================================
-// 4. SEARCH & FILTERS
-// ==========================================
 function handleSearch(val) {
     searchQuery = val;
     renderCars();
 }
 
 // ==========================================
-// 5. INITIALIZE
+// 5. HELPER FUNCTIONS
 // ==========================================
-window.onload = loadAllData;
+async function fetchUserLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+            const data = await res.json();
+            const city = data.address.city || data.address.town || "Greater Noida";
+            currentCity = city;
+            const locEl = document.getElementById('loc-text');
+            if(locEl) locEl.innerHTML = `📍 Near <b>${city}</b>`;
+        } catch(e) { console.log("Location detection failed."); }
+    });
+}
 
 function updateNav() {
     const navAuth = document.getElementById('nav-auth');
@@ -109,3 +135,11 @@ function updateNav() {
         if(nameEl) nameEl.innerText = activeUser.name.split(' ')[0];
     }
 }
+
+function logout() {
+    sessionStorage.clear();
+    location.reload();
+}
+
+// Initialization
+window.onload = loadAllData;
