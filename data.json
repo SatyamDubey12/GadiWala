@@ -15,7 +15,7 @@
       "role": "user"
     }
   ],
-  "cars": [
+  "vehicles": [
     {
       "id": "1",
       "name": "Thar 4x4",
@@ -23,16 +23,6 @@
       "price": 2500,
       "img": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=400"
     },
-   
-    {
-      "id": "1775568670113",
-      "name": "Royal Enfield Bike",
-      "price": 800,
-      "city": "Greater Noida",
-      "img": "https://images.unsplash.com/photo-1558981403-c5f91cbba527?w=400"
-    }
-  ],
-  "bike": [
     {
       "id": "1775568670113",
       "name": "Royal Enfield Bike",
