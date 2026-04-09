@@ -770,8 +770,8 @@ function renderAdminDash() {
                 <button onclick="editCar('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-blue-600 hover:text-white transition text-xs" title="Edit Car">✏️</button>
                 <button onclick="deleteCar('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-red-600 hover:text-white transition text-xs" title="Delete Car">🗑️</button>
             </div>
-        </div>`;
-    }).join('') : `<div class="col-span-full py-20 text-center text-gray-400 font-black uppercase tracking-widest">Fleet is empty</div>`;
+        </div>;
+    }).join('') : <div class="col-span-full py-20 text-center text-gray-400 font-black uppercase tracking-widest">Fleet is empty</div>`;
 }
 
 function switchAdminTab(tabId) {
