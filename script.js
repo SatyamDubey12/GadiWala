@@ -20,12 +20,11 @@ async function loadAllData() {
     showLoader();
     try {
         const [resC, resU, resB] = await Promise.all([
-            fetch(`${API_URL}/cars`).then(r => r.ok ? r.json() : []),
+            fetch(`${API_URL}/vehicles`).then(r => r.ok ? r.json() : []), // Fixed Endpoint
             fetch(`${API_URL}/users`).then(r => r.ok ? r.json() : []),
             fetch(`${API_URL}/bookings`).then(r => r.ok ? r.json() : [])
         ]);
 
-        // Safety check: Agar data nahi aaya toh empty array assign karein taaki filter crash na ho
         cars = Array.isArray(resC) ? resC : []; 
         users = Array.isArray(resU) ? resU : []; 
         bookings = Array.isArray(resB) ? resB : [];
