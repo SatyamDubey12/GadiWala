@@ -1,8 +1,8 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-// Bhai, yahan naya URL (gadiwala-1) use kiya hai taaki connection fail na ho
-const API_URL = "https://gadiwala-1.onrender.com"; 
+// IS LINE KO UPDATE KAREIN
+const API_URL = "https://gadiwala-1.onrender.com";
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
 let selectedRole = 'user', tempBooking = {}, searchQuery = "", currentCity = "";
