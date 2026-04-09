@@ -1,14 +1,13 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-// IS LINE KO UPDATE KAREIN
-const API_URL = "https://gadiwala-1.onrender.com";
+const API_URL = "https://gadiwala-1.onrender.com"; 
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
 let selectedRole = 'user', tempBooking = {}, searchQuery = "", currentCity = "";
 let generatedOtp = "", forgotOtp = "", resetUserEmail = "";
 
-// EmailJS Initialization (Aapki original ID)
+// EmailJS Initialization
 (function(){ emailjs.init("UBoCaMD4uz6NNv7jD"); })();
 
 const showLoader = () => document.getElementById('loader')?.classList.remove('hidden');
@@ -21,12 +20,15 @@ async function loadAllData() {
     showLoader();
     try {
         const [resC, resU, resB] = await Promise.all([
-            fetch(`${API_URL}/cars`).then(r => r.json()),
-            fetch(`${API_URL}/users`).then(r => r.json()),
-            fetch(`${API_URL}/bookings`).then(r => r.ok ? r.json() : []).catch(() => [])
+            fetch(`${API_URL}/cars`).then(r => r.ok ? r.json() : []),
+            fetch(`${API_URL}/users`).then(r => r.ok ? r.json() : []),
+            fetch(`${API_URL}/bookings`).then(r => r.ok ? r.json() : [])
         ]);
 
-        cars = resC; users = resU; bookings = resB;
+        // Safety check: Agar data nahi aaya toh empty array assign karein taaki filter crash na ho
+        cars = Array.isArray(resC) ? resC : []; 
+        users = Array.isArray(resU) ? resU : []; 
+        bookings = Array.isArray(resB) ? resB : [];
         
         updateNav();
         renderCars();
@@ -38,12 +40,12 @@ async function loadAllData() {
     } catch(e) { 
         console.error("Connection Error:", e);
         const list = document.getElementById('car-list');
-        if(list) list.innerHTML = `<div class="col-span-full text-center py-10 font-bold text-orange-500">Server is waking up (Render Free Tier)... Please refresh in 20 seconds.</div>`;
+        if(list) list.innerHTML = `<div class="col-span-full text-center py-10 font-bold text-orange-500">Server is waking up... Please refresh in 30 seconds.</div>`;
     } finally { hideLoader(); }
 }
 
 // ==========================================
-// 3. AUTH & OTP FEATURES (Aapka original feature)
+// 3. AUTH & OTP FEATURES
 // ==========================================
 async function startRegistration() {
     const e = document.getElementById('reg-e').value.trim();
@@ -74,7 +76,7 @@ function login() {
 }
 
 // ==========================================
-// 4. LOCATION & SEARCH FEATURES (Aapka original feature)
+// 4. LOCATION & SEARCH
 // ==========================================
 async function fetchUserLocation() {
     if (!navigator.geolocation) return;
@@ -97,7 +99,7 @@ function handleSearch(val) {
 }
 
 // ==========================================
-// 5. BOOKING & PAYMENT (UPI QR Code)
+// 5. BOOKING & PAYMENT (UPI QR)
 // ==========================================
 function initBooking(carId) {
     if(!activeUser) return alert("Please Login");
@@ -172,16 +174,9 @@ function renderUserDash() {
     }
 }
 
-// Global Actions
 const updateNav = () => { 
     const navName = document.getElementById('user-name-nav');
     if(activeUser && navName) navName.innerText = activeUser.name; 
 };
-
-async function deleteCar(id) { 
-    if(!confirm("Are you sure?")) return;
-    await fetch(`${API_URL}/cars/${id}`, {method:'DELETE'}); 
-    loadAllData(); 
-}
 
 window.onload = loadAllData;
