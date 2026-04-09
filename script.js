@@ -746,7 +746,7 @@ function renderAdminDash() {
                             hideLoader();
                         }
                     }
-        <div class="p-4 bg-white border rounded-[30px] flex justify-between items-center shadow-sm hover:shadow-md transition">
+        `<div class="p-4 bg-white border rounded-[30px] flex justify-between items-center shadow-sm hover:shadow-md transition">
             <div class="flex items-center gap-4">
                 <div class="relative cursor-pointer group" onclick="toggleAvailability('${c.id}')" title="Click to toggle status">
                     <img src="${c.img}" class="w-16 h-16 object-cover rounded-2xl shadow-sm group-hover:opacity-70 transition">
