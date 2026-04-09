@@ -29,7 +29,7 @@ async function loadAllData() {
         users = Array.isArray(resU) ? resU : []; 
         bookings = Array.isArray(resB) ? resB : [];
         
-        updateNav();
+        updateNav(); 
         renderCars();
         renderDashboards();
         fetchUserLocation();
@@ -41,8 +41,24 @@ async function loadAllData() {
 }
 
 // ==========================================
-// 3. LOGIN & AUTH SYSTEM
+// 3. LOGIN & NAV SYSTEM (Visibility Fix)
 // ==========================================
+function updateNav() { 
+    const loginBtn = document.getElementById('login-btn-nav');
+    const logoutBtn = document.getElementById('logout-btn-nav');
+    const navName = document.getElementById('user-name-nav');
+
+    if (activeUser) {
+        if (navName) navName.innerText = `Hi, ${activeUser.name}`;
+        loginBtn?.classList.add('hidden');
+        logoutBtn?.classList.remove('hidden');
+    } else {
+        if (navName) navName.innerText = "";
+        loginBtn?.classList.remove('hidden');
+        logoutBtn?.classList.add('hidden');
+    }
+}
+
 function login() {
     const e = document.getElementById('l-email').value.trim().toLowerCase();
     const p = document.getElementById('l-pass').value.trim();
@@ -51,7 +67,6 @@ function login() {
     if(userMatch) {
         activeUser = userMatch;
         sessionStorage.setItem('activeUser', JSON.stringify(userMatch));
-        alert("Login Successful!");
         location.reload();
     } else { 
         alert("Invalid Email or Password"); 
@@ -59,12 +74,13 @@ function login() {
 }
 
 function logout() {
-    if(confirm("Are you sure you want to logout?")) {
-        sessionStorage.removeItem('activeUser');
-        location.reload();
-    }
+    sessionStorage.removeItem('activeUser');
+    location.reload();
 }
 
+// ==========================================
+// 4. OTP REGISTRATION & FORGOT PASSWORD
+// ==========================================
 async function startRegistration() {
     const e = document.getElementById('reg-e').value.trim();
     if(!e) return alert("Email is empty!");
@@ -75,7 +91,7 @@ async function startRegistration() {
             email: e, 
             passcode: `Your GadiWala OTP is: ${generatedOtp}` 
         });
-        alert("OTP Sent!");
+        alert("OTP Sent to your email!");
         document.getElementById('otp-section').classList.remove('hidden');
     } catch(err) { alert("Email Service Error"); }
     finally { hideLoader(); }
@@ -96,13 +112,13 @@ async function completeRegistration() {
             headers: {'Content-Type': 'application/json'}, 
             body: JSON.stringify(newUser)
         });
-        alert("Success! Please Login.");
+        alert("Registration Successful! Please Login.");
         location.reload();
     } catch(e) { alert("Registration failed."); }
 }
 
 // ==========================================
-// 4. SEARCH & LOCATION SYSTEM
+// 5. SEARCH & LOCATION SYSTEM (With Deletion)
 // ==========================================
 function handleSearch(event) {
     searchQuery = event.target.value.toLowerCase();
@@ -138,12 +154,11 @@ function deleteLoc() {
 }
 
 // ==========================================
-// 5. BOOKING SYSTEM (Fixed ReferenceError)
+// 6. BOOKING SYSTEM (Fixed initBooking Error)
 // ==========================================
 async function initBooking(carId) {
     if (!activeUser) {
-        alert("Please login first!");
-        document.getElementById('login-modal')?.classList.remove('hidden');
+        alert("Bhai, pehle Login toh kar lo!");
         return;
     }
 
@@ -170,13 +185,13 @@ async function initBooking(carId) {
                 alert("Booking Successful!");
                 location.reload();
             }
-        } catch (e) { alert("Network Error"); }
+        } catch (e) { alert("Server error."); }
         finally { hideLoader(); }
     }
 }
 
 // ==========================================
-// 6. UI RENDERING (English)
+// 7. UI RENDERING & DASHBOARDS
 // ==========================================
 function renderCars() {
     const list = document.getElementById('car-list');
@@ -189,7 +204,7 @@ function renderCars() {
 
     list.innerHTML = filtered.map(c => `
         <div class="bg-white p-4 rounded-3xl shadow-lg border">
-            <img src="${c.img}" class="h-40 w-full object-cover rounded-2xl mb-4">
+            <img src="${c.img}" class="h-40 w-full object-cover rounded-2xl mb-4" onerror="this.src='https://via.placeholder.com/300x200?text=No+Image'">
             <h4 class="font-bold text-lg">${c.name}</h4>
             <p class="text-xs text-gray-500 mb-4">₹${c.price}/day • ${c.city}</p>
             <button onclick="initBooking('${c.id}')" class="w-full bg-black text-white py-2 rounded-xl text-xs font-bold uppercase">Book Now</button>
@@ -206,11 +221,10 @@ function renderDashboards() {
         adminSec?.classList.remove('hidden');
         userSec?.classList.add('hidden');
         carListSec?.classList.add('hidden'); 
-        renderAdminDash();
     } else if (activeUser?.role === 'user') {
         adminSec?.classList.add('hidden');
         userSec?.classList.remove('hidden');
-        renderUserDash(); 
+        renderUserDash();
     }
 }
 
@@ -223,22 +237,7 @@ function renderUserDash() {
                 <td class="p-3 text-sm font-medium">${b.carName}</td>
                 <td class="p-3 text-sm text-green-600 font-bold">${b.status}</td>
             </tr>
-        `).join('') || "<tr><td colspan='2' class='p-3 text-center'>No logs found.</td></tr>";
-    }
-}
-
-function updateNav() { 
-    const navName = document.getElementById('user-name-nav');
-    const loginBtn = document.getElementById('login-btn-nav');
-    const logoutBtn = document.getElementById('logout-btn-nav');
-
-    if(activeUser) {
-        if(navName) navName.innerText = `Hi, ${activeUser.name}`;
-        loginBtn?.classList.add('hidden');
-        logoutBtn?.classList.remove('hidden');
-    } else {
-        loginBtn?.classList.remove('hidden');
-        logoutBtn?.classList.add('hidden');
+        `).join('') || "<tr><td colspan='2' class='p-3 text-center'>No bookings yet.</td></tr>";
     }
 }
 
