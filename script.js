@@ -14,7 +14,7 @@ const showLoader = () => document.getElementById('loader')?.classList.remove('hi
 const hideLoader = () => document.getElementById('loader')?.classList.add('hidden');
 
 // ==========================================
-// 2. DATA SYNC & DASHBOARD LOGIC
+// 2. DATA SYNC & INITIALIZATION
 // ==========================================
 async function loadAllData() {
     showLoader();
@@ -40,45 +40,26 @@ async function loadAllData() {
     }
 }
 
-function renderDashboards() {
-    const adminSec = document.getElementById('admin-dashboard');
-    const userSec = document.getElementById('user-dashboard');
-    const carListSec = document.getElementById('car-list-section');
-
-    if (activeUser?.role === 'admin') {
-        adminSec?.classList.remove('hidden');
-        userSec?.classList.add('hidden');
-        carListSec?.classList.add('hidden'); 
-        renderAdminDash();
-    } else if (activeUser?.role === 'user') {
-        adminSec?.classList.add('hidden');
-        userSec?.classList.remove('hidden');
-        renderUserDash(); 
-    }
-}
-
 // ==========================================
-// 3. LOGIN & AUTH SYSTEM (Key Changes Here)
+// 3. LOGIN & AUTH SYSTEM
 // ==========================================
 function login() {
     const e = document.getElementById('l-email').value.trim().toLowerCase();
     const p = document.getElementById('l-pass').value.trim();
-    
-    // Finding user in fetched data
     const userMatch = users.find(x => x.email.toLowerCase() === e && x.pass === p);
     
     if(userMatch) {
         activeUser = userMatch;
         sessionStorage.setItem('activeUser', JSON.stringify(userMatch));
-        alert("Login Successful! Redirecting...");
-        location.reload(); // Refresh to update Nav and Dashboard
+        alert("Login Successful!");
+        location.reload();
     } else { 
-        alert("Invalid Email or Password. Please try again."); 
+        alert("Invalid Email or Password"); 
     }
 }
 
 function logout() {
-    if(confirm("Do you want to logout?")) {
+    if(confirm("Are you sure you want to logout?")) {
         sessionStorage.removeItem('activeUser');
         location.reload();
     }
@@ -94,13 +75,10 @@ async function startRegistration() {
             email: e, 
             passcode: `Your GadiWala OTP is: ${generatedOtp}` 
         });
-        alert("OTP Sent to your email!");
+        alert("OTP Sent!");
         document.getElementById('otp-section').classList.remove('hidden');
-    } catch(err) { 
-        alert("Email Service Error"); 
-    } finally { 
-        hideLoader(); 
-    }
+    } catch(err) { alert("Email Service Error"); }
+    finally { hideLoader(); }
 }
 
 async function completeRegistration() {
@@ -118,19 +96,53 @@ async function completeRegistration() {
             headers: {'Content-Type': 'application/json'}, 
             body: JSON.stringify(newUser)
         });
-        alert("Registration Successful! Please Login.");
+        alert("Success! Please Login.");
         location.reload();
-    } catch(e) { 
-        alert("Registration failed on server."); 
-    }
+    } catch(e) { alert("Registration failed."); }
 }
 
 // ==========================================
-// 4. BOOKING & LOGS
+// 4. SEARCH & LOCATION SYSTEM
+// ==========================================
+function handleSearch(event) {
+    searchQuery = event.target.value.toLowerCase();
+    renderCars();
+}
+
+async function fetchUserLocation() {
+    if (!navigator.geolocation || sessionStorage.getItem('locationDeleted') === 'true') {
+        updateLocationUI(currentCity);
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+            const data = await res.json();
+            currentCity = data.address.city || data.address.town || "Greater Noida";
+            updateLocationUI(currentCity);
+        } catch(e) { updateLocationUI("Greater Noida"); }
+    });
+}
+
+function updateLocationUI(city) {
+    const el = document.getElementById('loc-text');
+    if(el) {
+        el.innerHTML = `📍 ${city} <button onclick="deleteLoc()" class="text-red-500 ml-2 text-xs font-bold">REMOVE</button>`;
+    }
+}
+
+function deleteLoc() {
+    sessionStorage.setItem('locationDeleted', 'true');
+    currentCity = "Greater Noida";
+    updateLocationUI(currentCity);
+}
+
+// ==========================================
+// 5. BOOKING SYSTEM (Fixed ReferenceError)
 // ==========================================
 async function initBooking(carId) {
     if (!activeUser) {
-        alert("Please login first!"); // Fix for the alert in your image
+        alert("Please login first!");
         document.getElementById('login-modal')?.classList.remove('hidden');
         return;
     }
@@ -147,56 +159,87 @@ async function initBooking(carId) {
             date: new Date().toLocaleString()
         };
 
+        showLoader();
         try {
-            await fetch(`${API_URL}/bookings`, {
+            const res = await fetch(`${API_URL}/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newBooking)
             });
-            alert("Booking Saved!");
-            location.reload();
-        } catch (e) { alert("Error saving booking."); }
+            if (res.ok) {
+                alert("Booking Successful!");
+                location.reload();
+            }
+        } catch (e) { alert("Network Error"); }
+        finally { hideLoader(); }
     }
 }
 
 // ==========================================
-// 5. UI RENDERING
+// 6. UI RENDERING (English)
 // ==========================================
 function renderCars() {
     const list = document.getElementById('car-list');
     if(!list) return;
-    list.innerHTML = cars.map(c => `
+
+    const filtered = cars.filter(c => 
+        c.name.toLowerCase().includes(searchQuery) || 
+        c.city.toLowerCase().includes(searchQuery)
+    );
+
+    list.innerHTML = filtered.map(c => `
         <div class="bg-white p-4 rounded-3xl shadow-lg border">
             <img src="${c.img}" class="h-40 w-full object-cover rounded-2xl mb-4">
             <h4 class="font-bold text-lg">${c.name}</h4>
-            <p class="text-xs text-gray-500">₹${c.price}/day • ${c.city}</p>
-            <button onclick="initBooking('${c.id}')" class="w-full mt-4 bg-black text-white py-2 rounded-xl text-xs font-bold uppercase">Book Now</button>
+            <p class="text-xs text-gray-500 mb-4">₹${c.price}/day • ${c.city}</p>
+            <button onclick="initBooking('${c.id}')" class="w-full bg-black text-white py-2 rounded-xl text-xs font-bold uppercase">Book Now</button>
         </div>
-    `).join('');
+    `).join('') || `<div class="col-span-full text-center py-10">No results found.</div>`;
+}
+
+function renderDashboards() {
+    const adminSec = document.getElementById('admin-dashboard');
+    const userSec = document.getElementById('user-dashboard');
+    const carListSec = document.getElementById('car-list-section');
+
+    if (activeUser?.role === 'admin') {
+        adminSec?.classList.remove('hidden');
+        userSec?.classList.add('hidden');
+        carListSec?.classList.add('hidden'); 
+        renderAdminDash();
+    } else if (activeUser?.role === 'user') {
+        adminSec?.classList.add('hidden');
+        userSec?.classList.remove('hidden');
+        renderUserDash(); 
+    }
 }
 
 function renderUserDash() {
     const hist = document.getElementById('u-history');
     if(hist) {
-        const myBookings = bookings.filter(b => b.userId === activeUser.id);
-        hist.innerHTML = myBookings.map(b => `
+        const myLogs = bookings.filter(b => b.userId === activeUser.id);
+        hist.innerHTML = myLogs.map(b => `
             <tr class="border-b">
-                <td class="p-3 text-sm">${b.carName}</td>
-                <td class="p-3 text-sm font-bold text-green-600">${b.status}</td>
+                <td class="p-3 text-sm font-medium">${b.carName}</td>
+                <td class="p-3 text-sm text-green-600 font-bold">${b.status}</td>
             </tr>
-        `).join('') || "<tr><td colspan='2' class='p-3 text-center'>No active bookings.</td></tr>";
+        `).join('') || "<tr><td colspan='2' class='p-3 text-center'>No logs found.</td></tr>";
     }
 }
 
-const updateNav = () => { 
-    if(activeUser) {
-        const navName = document.getElementById('user-name-nav');
-        if(navName) navName.innerText = activeUser.name;
-        document.getElementById('login-btn-nav')?.classList.add('hidden');
-        document.getElementById('logout-btn-nav')?.classList.remove('hidden');
-    }
-};
+function updateNav() { 
+    const navName = document.getElementById('user-name-nav');
+    const loginBtn = document.getElementById('login-btn-nav');
+    const logoutBtn = document.getElementById('logout-btn-nav');
 
-// ... (Other functions like fetchUserLocation, addCar, deleteCar stay same)
+    if(activeUser) {
+        if(navName) navName.innerText = `Hi, ${activeUser.name}`;
+        loginBtn?.classList.add('hidden');
+        logoutBtn?.classList.remove('hidden');
+    } else {
+        loginBtn?.classList.remove('hidden');
+        logoutBtn?.classList.add('hidden');
+    }
+}
 
 window.onload = loadAllData;
