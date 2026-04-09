@@ -460,7 +460,7 @@ function proceedToPayment() {
     document.getElementById('pay-amount-display').innerText = `Total: ₹${tempBooking.total} (${tempBooking.days} days)`;
     
     // Fetch Admin-set UPI ID or use default
-    const upiID = localStorage.getItem('adminUpiID') || "satyamdubey7582@okicici"; 
+    const upiID = localStorage.getItem('adminUpiID') || " exampl123@okcicic"; 
     const upiName = "GadiWala Payments";
     
     // Dynamic QR with Amount
@@ -533,7 +533,8 @@ async function finalSubmit(payStatus) {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
         if(res.ok) {
-            alert("Booking Successful! Download your invoice from Dashboard.");
+            alert(  " Pending"
+                "Booking Request sent! Amin ke approval ka wait karein.");
             closeModal(); loadAllData(); showPage('user-dash');
         }
     } catch(e) { alert("Booking failed. Check server."); }
@@ -588,13 +589,13 @@ async function addNewCar() {
     const price = document.getElementById('add-car-price').value;
     const city = document.getElementById('add-car-loc').value;
     const img = document.getElementById('add-car-img').value;
-    if(!name || !price || !city || !img) return alert("Fill details.");
-    const newCar = { id: Date.now().toString(), name, price: parseInt(price), city, img };
+    if(!name || !price || !city || !img) return alert("Please fill all details.");
+    const newCar = { id: Date.now().toString(), name, price: parseInt(price), city, img ,status:'Available' };
     showLoader();
     try {
-        const res = await fetch(`${API_URL}/cars`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newCar) });
-        if(res.ok) { alert("Added!"); resetAddCarForm(); loadAllData(); }
-    } catch(e) { alert("Failed."); }
+        const res = await fetch(`${API_URL}/vehicles`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newCar) });
+        if(res.ok) { alert("Vehicle Added Successfully to Fleet!"); resetAddCarForm(); await loadAllData(); }
+    } catch(e) { alert("Failed to add vehicle. check server connection"); }
     finally { hideLoader(); }
 }
 
@@ -612,7 +613,7 @@ async function updateCar(id) {
     const data = { name: document.getElementById('add-car-name').value, price: parseInt(document.getElementById('add-car-price').value), city: document.getElementById('add-car-loc').value, img: document.getElementById('add-car-img').value };
     showLoader();
     try {
-        const res = await fetch(`${API_URL}/cars/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        const res = await fetch(`${API_URL}/vehicles/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
         if(res.ok) { alert("Updated!"); resetAddCarForm(); loadAllData(); }
     } catch(e) { alert("Failed."); }
     finally { hideLoader(); }
@@ -632,9 +633,9 @@ async function deleteBooking(id) {
 }
 
 async function deleteCar(id) {
-    if(!confirm("Remove?")) return;
+    if(!confirm("Are you sure you want to remove this vehicle from the fleet??")) return;
     showLoader();
-    try { await fetch(`${API_URL}/cars/${id}`, { method: 'DELETE' }); loadAllData(); } catch(e) {}
+    try { await fetch(`${API_URL}/vehicles/${id}`, { method: 'DELETE' }); loadAllData(); } catch(e) {}
     finally { hideLoader(); }
 }
 
@@ -718,10 +719,34 @@ function renderAdminDash() {
             </div>
         </div>`).join('') : `<div class="py-20 text-center text-gray-400 font-black uppercase tracking-widest">No bookings found</div>`;
 
-    // 2. Render Fleet
-    fleetList.innerHTML = cars.length ? cars.map(c => {
-        const isAvailable = c.status !== 'Not Available';
-        return `
+                        // 2. Render Fleet
+                        fleetList.innerHTML = cars.length ? cars.map(c => {
+                            const isAvailable = c.status !== 'Not Available';
+                            async function toggleAvailability(id) {
+                        const car = cars.find(c => c.id == id);
+                        if(!car) return;
+
+                        // Status toggle logic
+                        const newStatus = car.status === 'Not Available' ? 'Available' : 'Not Available';
+                        
+                        showLoader();
+                        try {
+                            // Path fix: /vehicles endpoint use ho raha hai
+                            const res = await fetch(`${API_URL}/vehicles/${id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: newStatus })
+                            });
+
+                            if(res.ok) {
+                                await loadAllData(); // Screen refresh karne ke liye
+                            }
+                        } catch(e) {
+                            alert("Status update failed. Console check karein.");
+                        } finally {
+                            hideLoader();
+                        }
+                    }
         <div class="p-4 bg-white border rounded-[30px] flex justify-between items-center shadow-sm hover:shadow-md transition">
             <div class="flex items-center gap-4">
                 <div class="relative cursor-pointer group" onclick="toggleAvailability('${c.id}')" title="Click to toggle status">
