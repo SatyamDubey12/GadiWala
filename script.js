@@ -1,13 +1,14 @@
 // ==========================================
 // 1. CONFIGURATION & STATE
 // ==========================================
-const API_URL = "https://gadiwala.onrender.com"; 
+// Bhai, yahan naya URL (gadiwala-1) use kiya hai taaki connection fail na ho
+const API_URL = "https://gadiwala-1.onrender.com"; 
 let cars = [], users = [], bookings = [];
 let activeUser = JSON.parse(sessionStorage.getItem('activeUser')) || null;
 let selectedRole = 'user', tempBooking = {}, searchQuery = "", currentCity = "";
 let generatedOtp = "", forgotOtp = "", resetUserEmail = "";
 
-// EmailJS Initialization
+// EmailJS Initialization (Aapki original ID)
 (function(){ emailjs.init("UBoCaMD4uz6NNv7jD"); })();
 
 const showLoader = () => document.getElementById('loader')?.classList.remove('hidden');
@@ -37,12 +38,12 @@ async function loadAllData() {
     } catch(e) { 
         console.error("Connection Error:", e);
         const list = document.getElementById('car-list');
-        if(list) list.innerHTML = `<div class="col-span-full text-center py-10 font-bold text-orange-500">Server is waking up... Please refresh in 30 seconds.</div>`;
+        if(list) list.innerHTML = `<div class="col-span-full text-center py-10 font-bold text-orange-500">Server is waking up (Render Free Tier)... Please refresh in 20 seconds.</div>`;
     } finally { hideLoader(); }
 }
 
 // ==========================================
-// 3. AUTH & OTP FEATURES (EmailJS)
+// 3. AUTH & OTP FEATURES (Aapka original feature)
 // ==========================================
 async function startRegistration() {
     const e = document.getElementById('reg-e').value.trim();
@@ -73,7 +74,7 @@ function login() {
 }
 
 // ==========================================
-// 4. LOCATION & SEARCH FEATURES
+// 4. LOCATION & SEARCH FEATURES (Aapka original feature)
 // ==========================================
 async function fetchUserLocation() {
     if (!navigator.geolocation) return;
@@ -83,7 +84,8 @@ async function fetchUserLocation() {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
             const data = await res.json();
             currentCity = data.address.city || data.address.town || "Greater Noida";
-            document.getElementById('loc-text').innerHTML = `📍 Location: <b>${currentCity}</b>`;
+            const locEl = document.getElementById('loc-text');
+            if(locEl) locEl.innerHTML = `📍 Location: <b>${currentCity}</b>`;
             renderCars();
         } catch(e) { console.warn("Location error"); }
     });
@@ -95,7 +97,7 @@ function handleSearch(val) {
 }
 
 // ==========================================
-// 5. BOOKING & PAYMENT (QR CODE)
+// 5. BOOKING & PAYMENT (UPI QR Code)
 // ==========================================
 function initBooking(carId) {
     if(!activeUser) return alert("Please Login");
@@ -104,8 +106,9 @@ function initBooking(carId) {
     
     const upiID = "satyamdubey7582@okicici"; 
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${upiID}&pn=GadiWala&am=${car.price}&cu=INR`;
-    document.getElementById('upi-qr').src = qrUrl;
-    document.getElementById('pay-modal').classList.remove('hidden');
+    const qrImg = document.getElementById('upi-qr');
+    if(qrImg) qrImg.src = qrUrl;
+    document.getElementById('pay-modal')?.classList.remove('hidden');
 }
 
 async function finalSubmit(payStatus) {
@@ -120,12 +123,12 @@ async function finalSubmit(payStatus) {
         });
         alert("Booking Successful!");
         location.reload();
-    } catch(e) { alert("Error"); }
+    } catch(e) { alert("Error submitting booking."); }
     finally { hideLoader(); }
 }
 
 // ==========================================
-// 6. ADMIN & USER DASHBOARDS
+// 6. DASHBOARDS & RENDERING
 // ==========================================
 function renderCars() {
     const list = document.getElementById('car-list');
@@ -145,26 +148,40 @@ function renderCars() {
 }
 
 function renderAdminDash() {
-    document.getElementById('a-fleet-list').innerHTML = cars.map(c => `
-        <div class="flex justify-between p-3 border-b">
-            <span>${c.name} (${c.status})</span>
-            <button onclick="deleteCar('${c.id}')" class="text-red-500">🗑️</button>
-        </div>
-    `).join('');
+    const fleetList = document.getElementById('a-fleet-list');
+    if(fleetList) {
+        fleetList.innerHTML = cars.map(c => `
+            <div class="flex justify-between p-3 border-b">
+                <span>${c.name} (${c.status})</span>
+                <button onclick="deleteCar('${c.id}')" class="text-red-500">🗑️</button>
+            </div>
+        `).join('');
+    }
 }
 
 function renderUserDash() {
-    const myB = bookings.filter(b => b.userId === activeUser.id);
-    document.getElementById('u-history').innerHTML = myB.map(b => `
-        <tr class="border-b text-sm">
-            <td class="p-3"><b>${b.carName}</b></td>
-            <td class="p-3 text-blue-600">${b.status}</td>
-        </tr>
-    `).join('');
+    const hist = document.getElementById('u-history');
+    if(hist) {
+        const myB = bookings.filter(b => b.userId === activeUser.id);
+        hist.innerHTML = myB.map(b => `
+            <tr class="border-b text-sm">
+                <td class="p-3"><b>${b.carName}</b></td>
+                <td class="p-3 text-blue-600">${b.status}</td>
+            </tr>
+        `).join('');
+    }
 }
 
 // Global Actions
-const updateNav = () => { if(activeUser) document.getElementById('user-name-nav').innerText = activeUser.name; };
-async function deleteCar(id) { await fetch(`${API_URL}/cars/${id}`, {method:'DELETE'}); loadAllData(); }
+const updateNav = () => { 
+    const navName = document.getElementById('user-name-nav');
+    if(activeUser && navName) navName.innerText = activeUser.name; 
+};
+
+async function deleteCar(id) { 
+    if(!confirm("Are you sure?")) return;
+    await fetch(`${API_URL}/cars/${id}`, {method:'DELETE'}); 
+    loadAllData(); 
+}
 
 window.onload = loadAllData;
