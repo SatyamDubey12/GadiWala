@@ -115,16 +115,63 @@ function login() {
     } else { alert("Wrong ID/Pass"); }
 }
 
+function logout() {
+    sessionStorage.removeItem('activeUser');
+    location.reload();
+}
+
 // ==========================================
-// 4. LOCATION, ADMIN & RENDER
+// 4. BOOKING LOGIC
+// ==========================================
+async function initBooking(carId) {
+    if (!activeUser) {
+        alert("Bhai, pehle Login toh kar lo!");
+        document.getElementById('login-modal')?.classList.remove('hidden');
+        return;
+    }
+
+    const car = cars.find(c => c.id === carId);
+    if (!car) return alert("Gaadi nahi mili!");
+
+    if (confirm(`${car.name} book karein ₹${car.price} mein?`)) {
+        const newBooking = {
+            id: Date.now().toString(),
+            userId: activeUser.id,
+            carId: car.id,
+            carName: car.name,
+            userName: activeUser.name,
+            status: "Pending",
+            date: new Date().toLocaleDateString()
+        };
+
+        showLoader();
+        try {
+            const res = await fetch(`${API_URL}/bookings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newBooking)
+            });
+            if (res.ok) {
+                alert("Mubarak ho! Booking ho gayi.");
+                location.reload();
+            } else { alert("Booking fail ho gayi."); }
+        } catch (e) { alert("Server error."); }
+        finally { hideLoader(); }
+    }
+}
+
+// ==========================================
+// 5. LOCATION, ADMIN & RENDER
 // ==========================================
 async function fetchUserLocation() {
     if (!navigator.geolocation || sessionStorage.getItem('locationDeleted')) return updateLocationUI(currentCity);
     navigator.geolocation.getCurrentPosition(async (pos) => {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-        const data = await res.json();
-        currentCity = data.address.city || "Greater Noida";
-        updateLocationUI(currentCity);
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+            const data = await res.json();
+            currentCity = data.address.city || "Greater Noida";
+            updateLocationUI(currentCity);
+        } catch(e) { updateLocationUI("Greater Noida"); }
     });
 }
 
@@ -143,13 +190,15 @@ async function addCar() {
     const name = document.getElementById('new-car-name').value;
     const price = document.getElementById('new-car-price').value;
     const img = document.getElementById('new-car-img').value;
+    if(!name || !price || !img) return alert("Fill all fields");
+
     const newCar = { id: Date.now().toString(), name, price: parseInt(price), img, status: "Available", city: currentCity };
     await fetch(`${API_URL}/vehicles`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newCar)});
     location.reload();
 }
 
 async function deleteCar(id) {
-    if(confirm("Delete?")) {
+    if(confirm("Delete gaadi?")) {
         await fetch(`${API_URL}/vehicles/${id}`, { method: 'DELETE' });
         location.reload();
     }
@@ -170,7 +219,7 @@ function renderCars() {
 
 function renderAdminDash() {
     const fleet = document.getElementById('a-fleet-list');
-    if(fleet) fleet.innerHTML = cars.map(c => `<div class="p-3 border-b flex justify-between"><span>${c.name}</span><button onclick="deleteCar('${c.id}')" class="text-red-500">DELETE</button></div>`).join('');
+    if(fleet) fleet.innerHTML = cars.map(c => `<div class="p-3 border-b flex justify-between items-center bg-gray-50 mb-2 rounded-lg"><span>${c.name}</span><button onclick="deleteCar('${c.id}')" class="text-red-500 font-bold">DELETE</button></div>`).join('');
 }
 
 function renderUserDash() {
@@ -180,7 +229,8 @@ function renderUserDash() {
 
 const updateNav = () => { 
     if(activeUser) {
-        document.getElementById('user-name-nav').innerText = activeUser.name;
+        const navName = document.getElementById('user-name-nav');
+        if(navName) navName.innerText = activeUser.name;
         document.getElementById('login-btn-nav')?.classList.add('hidden');
         document.getElementById('logout-btn-nav')?.classList.remove('hidden');
     }
