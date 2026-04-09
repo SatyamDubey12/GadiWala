@@ -533,8 +533,7 @@ async function finalSubmit(payStatus) {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
         });
         if(res.ok) {
-            alert(  " Pending"
-                "Booking Request sent! Amin ke approval ka wait karein.");
+            alert( "Pending! Booking Request sent! Admin ke approval ka wait karein.");
             closeModal(); loadAllData(); showPage('user-dash');
         }
     } catch(e) { alert("Booking failed. Check server."); }
