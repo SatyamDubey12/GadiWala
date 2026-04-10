@@ -746,7 +746,8 @@ function renderAdminDash() {
                             hideLoader();
                         }
                     }
-        `<div class="p-4 bg-white border rounded-[30px] flex justify-between items-center shadow-sm hover:shadow-md transition">
+                    const cardHTML=`
+        <div class="p-4 bg-white border rounded-[30px] flex justify-between items-center shadow-sm hover:shadow-md transition">
             <div class="flex items-center gap-4">
                 <div class="relative cursor-pointer group" onclick="toggleAvailability('${c.id}')" title="Click to toggle status">
                     <img src="${c.img}" class="w-16 h-16 object-cover rounded-2xl shadow-sm group-hover:opacity-70 transition">
@@ -764,13 +765,15 @@ function renderAdminDash() {
                     </div>
                 </div>
             </div>
+            document.getElementById('container').innerHTML =cardHTML;
             <div class="flex gap-2">
                 <button onclick="toggleAvailability('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-orange-500 hover:text-white transition text-xs" title="Toggle Status">🔄</button>
                 <button onclick="editCar('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-blue-600 hover:text-white transition text-xs" title="Edit Car">✏️</button>
                 <button onclick="deleteCar('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-red-600 hover:text-white transition text-xs" title="Delete Car">🗑️</button>
             </div>
-        </div>;
-    }).join('') : <div class="col-span-full py-20 text-center text-gray-400 font-black uppercase tracking-widest">Fleet is empty</div>;
+        </div>`;
+         document.getElementById('container').innerHTML =cardHTML;
+    }).join('') : `<div class="col-span-full py-20 text-center text-gray-400 font-black uppercase tracking-widest">NO CARS FOUND</div>`
 }
 
 function switchAdminTab(tabId) {
