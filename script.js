@@ -721,6 +721,7 @@ function renderAdminDash() {
                         // 2. Render Fleet
                         fleetList.innerHTML = cars.length ? cars.map(c => {
                             const isAvailable = c.status !== 'Not Available';
+                            return
                             async function toggleAvailability(id) {
                         const car = cars.find(c => c.id == id);
                         if(!car) return;
@@ -765,7 +766,7 @@ function renderAdminDash() {
                     </div>
                 </div>
             </div>
-            document.getElementById('container').innerHTML =cardHTML;
+            document.getElementById.innerHTML =cardHTML;
             <div class="flex gap-2">
                 <button onclick="toggleAvailability('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-orange-500 hover:text-white transition text-xs" title="Toggle Status">🔄</button>
                 <button onclick="editCar('${c.id}')" class="p-2 rounded-xl bg-gray-50 hover:bg-blue-600 hover:text-white transition text-xs" title="Edit Car">✏️</button>

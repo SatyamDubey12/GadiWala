@@ -1,0 +1,38 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "name": "Admin",
+      "email": "admin@gadiwala.com",
+      "pass": "admin123",
+      "role": "admin"
+    },
+    {
+      "id": "1775512783699",
+      "name": "Prateek Tripathi",
+      "email": "prateekmrj08@gmail.com",
+      "pass": "Prateek@1234",
+      "role": "user"
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "1",
+      "name": "Thar 4x4",
+      "city": "Delhi",
+      "price": 2500,
+      "img": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=400"
+    },
+    {
+      "id": "1775568670113",
+      "name": "Royal Enfield Bike",
+      "price": 800,
+      "city": "Greater Noida",
+      "img": "https://images.unsplash.com/photo-1558981403-c5f91cbba527?w=400"
+    }
+  ],
+  "bookings": [],
+  "profile": {
+    "name": "Satyam Dubey"
+  }
+}
