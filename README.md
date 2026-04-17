@@ -5,7 +5,7 @@
 ![Banner](https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=1000)
 
 ## 🚀 Live Demo
-Aap is project ko yahan dekh sakte hain: [GadiWala Live Link](https://gadiwala-1.onrender.com)
+Aap is project ko yahan dekh sakte hain: [GadiWala Live Link]( https://satyamdubey12.github.io/GadiWala/)
 *(Note: Server sleep mode mein ho sakta hai, 30 seconds wait karein)*
 
 ---
